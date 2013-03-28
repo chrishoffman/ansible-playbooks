@@ -5,7 +5,9 @@
     nvm_dir: /opt/nvm
     hubot_dir: /opt/hubot
     node_dir: $nvm_dir/v$node_version/bin
+    src_dir: /usr/local/src/hubot
   tasks:
+    #Install node
     - name: install base dependencies
       apt: pkg=$item state=installed
       with_items:
@@ -14,14 +16,28 @@
         - libexpat1-dev
         - git-core
         - curl
+        - libicu-dev 
     - name: install nvm
       git: repo=https://github.com/creationix/nvm.git dest=$nvm_dir
     - name: install node using nvm
-      shell: . $nvm_dir/nvm.sh && nvm install $node_version creates=$nvm_dir/v$node_version executable=/bin/bash
+      shell: . $nvm_dir/nvm.sh && nvm install $node_version creates=$node_dir executable=/bin/bash
+
+      #Install hubot
     - name: clone hubot repo
-      git: repo=git://github.com/github/hubot.git dest=$hubot_dir
+      git: repo=git://github.com/github/hubot.git dest=$src_dir
+    - name: install dependencies
+      command: $node_dir/npm install chdir=$src_dir
+
     - name: install coffee-script globally
       command: $node_dir/npm install -g coffee-script creates=$node_dir/coffee
+    - name: create my hubot
+      shell: . $nvm_dir/nvm.sh && nvm use $node_version && make package chdir=$src_dir executable=/bin/bash
+
+    - name: clear out old hubot
+      file: path=$hubot_dir state=absent
+    - name: move to new home
+      command: mv $src_dir/hubot $hubot_dir
+
     - name: install hubot dependencies
       command: $node_dir/npm install chdir=$hubot_dir
     - name: install hubot custom dependencies
@@ -29,6 +45,7 @@
       with_items:
         - hubot-hipchat
         - hubot-scripts
+        - node-stringprep
     - name: create start.sh 
       template: src=templates/start.sh.j2 dest=$hubot_dir/start.sh mode=0744
     - name: create upstarts script
