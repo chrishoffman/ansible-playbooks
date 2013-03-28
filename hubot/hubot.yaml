@@ -8,6 +8,9 @@
     src_dir: /usr/local/src/hubot
   tasks:
     #Install node
+    - name: update apt cache
+      apt: update-cache=yes
+
     - name: install base dependencies
       apt: pkg=$item state=installed
       with_items:
@@ -16,37 +19,61 @@
         - libexpat1-dev
         - git-core
         - curl
-        - libicu-dev 
+
     - name: install nvm
       git: repo=https://github.com/creationix/nvm.git dest=$nvm_dir
+
     - name: install node using nvm
       shell: . $nvm_dir/nvm.sh && nvm install $node_version creates=$node_dir executable=/bin/bash
 
       #Install hubot
     - name: clone hubot repo
       git: repo=git://github.com/github/hubot.git dest=$src_dir
+
     - name: install dependencies
       command: $node_dir/npm install chdir=$src_dir
 
     - name: install coffee-script globally
       command: $node_dir/npm install -g coffee-script creates=$node_dir/coffee
+
     - name: create my hubot
       shell: . $nvm_dir/nvm.sh && nvm use $node_version && make package chdir=$src_dir executable=/bin/bash
 
     - name: clear out old hubot
       file: path=$hubot_dir state=absent
+
     - name: move to new home
       command: mv $src_dir/hubot $hubot_dir
 
     - name: install hubot dependencies
       command: $node_dir/npm install chdir=$hubot_dir
+
     - name: install hubot custom dependencies
       command: $node_dir/npm install $item chdir=$hubot_dir creates=$hubot_dir/node_modules/$item
       with_items:
         - hubot-hipchat
         - hubot-scripts
-        - node-stringprep
+
+    #Create configs
     - name: create start.sh 
       template: src=templates/start.sh.j2 dest=$hubot_dir/start.sh mode=0744
+      notify:
+        - restart hubot
+
+    - name: create hubot-scripts.json
+      template: src=templates/hubot-scripts.json.j2 dest=$hubot_dir/hubot-scripts.json
+      notify:
+        - restart hubot
+
     - name: create upstarts script
       template: src=templates/hubot.conf.j2 dest=/etc/init/hubot.conf
+      notify:
+        - restart hubot
+
+    #Fire it up
+    - name: create upstarts script
+      service: name=hubot state=started
+
+  handlers:
+    - name: restart hubot
+      service: name=hubot state=restarted
