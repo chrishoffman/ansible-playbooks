@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#Set up the environment
+export HUBOT_HIPCHAT_JID="{{ hipchat_jid }}"
+export HUBOT_HIPCHAT_PASSWORD="{{ hipchat_password }}"
+export HUBOT_HIPCHAT_DEBUG="{{ hipchat_debug | default('false') }}"
+
+# Fire up nodejs
+. {{ nvm_dir }}/nvm.sh
+nvm use {{ node_version }}
+
+# Start hubot in the background
+cd {{ hubot_dir }}
+bin/hubot --adapter hipchat

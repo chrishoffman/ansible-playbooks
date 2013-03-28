@@ -1,0 +1,35 @@
+- hosts: hubot
+  sudo: true
+  vars:
+    node_version: 0.10.1
+    nvm_dir: /opt/nvm
+    hubot_dir: /opt/hubot
+    node_dir: $nvm_dir/v$node_version/bin
+  tasks:
+    - name: install base dependencies
+      apt: pkg=$item state=installed
+      with_items:
+        - build-essential
+        - libssl-dev
+        - libexpat1-dev
+        - git-core
+        - curl
+    - name: install nvm
+      git: repo=https://github.com/creationix/nvm.git dest=$nvm_dir
+    - name: install node using nvm
+      shell: . $nvm_dir/nvm.sh && nvm install $node_version creates=$nvm_dir/v$node_version executable=/bin/bash
+    - name: clone hubot repo
+      git: repo=git://github.com/github/hubot.git dest=$hubot_dir
+    - name: install coffee-script globally
+      command: $node_dir/npm install -g coffee-script creates=$node_dir/coffee
+    - name: install hubot dependencies
+      command: $node_dir/npm install chdir=$hubot_dir
+    - name: install hubot custom dependencies
+      command: $node_dir/npm install $item chdir=$hubot_dir creates=$hubot_dir/node_modules/$item
+      with_items:
+        - hubot-hipchat
+        - hubot-scripts
+    - name: create start.sh 
+      template: src=templates/start.sh.j2 dest=$hubot_dir/start.sh mode=0744
+    - name: create upstarts script
+      template: src=templates/hubot.conf.j2 dest=/etc/init/hubot.conf
